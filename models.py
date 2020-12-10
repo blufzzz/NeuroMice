@@ -5,6 +5,9 @@ import torch.nn.functional as F
 import torch.optim as optim
 #import torchvision
 from torch.utils.data import Dataset, DataLoader
+from collections import defaultdict
+from IPython.display import clear_output
+
 
 class Encoder(nn.Module):
     def __init__(self, orig_dim, inter_dim, code_dim, **kwargs):
@@ -21,7 +24,6 @@ class Encoder(nn.Module):
         activation = torch.relu(activation)
         code = self.encoder_output_layer(activation)
         code = torch.sigmoid(code)
-        #code = torch.relu(code)
         
         return code
 
@@ -144,17 +146,17 @@ class NeuroDataset(Dataset):
 
         sample = {'vector': self.data[idx].reshape(-1, 1), 'target': 0}
 
-        if self.transform:
+        if self.transform is not None:
             sample = self.transform(sample)
 
         return self.data[idx], 0
         #return sample
         
         
-        
-        
 #@title AE learning { form-width: "300px" }
-def create_AE_embedding_(d, inter_dim, code_dim, epochs = 50):
+def create_AE_embedding_(d, inter_dim, code_dim, epochs = 50, plot=False):
+
+    history = defaultdict(list)
 
     #---------------------------------------------------------------------------
     batch_size = 32
@@ -167,7 +169,6 @@ def create_AE_embedding_(d, inter_dim, code_dim, epochs = 50):
 
     train_dataset = NeuroDataset(d)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-
 
     #---------------------------------------------------------------------------
     #  use gpu if available
@@ -184,9 +185,8 @@ def create_AE_embedding_(d, inter_dim, code_dim, epochs = 50):
     criterion = nn.MSELoss()
 
     #---------------------------------------------------------------------------
-
-    for epoch in range(epochs):
-        loss = 0
+    iterator = range(epochs) if plot else tqdm_notebook(range(epochs)) 
+    for epoch in iterator:
         for batch_features, _ in train_loader:
             
             # reset the gradients back to zero
@@ -194,7 +194,6 @@ def create_AE_embedding_(d, inter_dim, code_dim, epochs = 50):
             optimizer.zero_grad()
             
             # compute reconstructions
-
             outputs = model(batch_features.float())
             
             # compute training reconstruction loss
@@ -206,26 +205,30 @@ def create_AE_embedding_(d, inter_dim, code_dim, epochs = 50):
             # perform parameter update based on current gradients
             optimizer.step()
             
-            # add the mini-batch training loss to epoch loss
-            loss += train_loss.item()
-        
-        # compute the epoch training loss
-        loss = loss / len(train_loader)
-        
-        # display the epoch training loss
-        if (epoch + 1) % 1 == 0:
-            print("epoch : {}/{}, recon loss = {:.8f}".format(epoch + 1, epochs, loss))
+            history['loss'].append(train_loss.item())
 
-    
+            clear_output(wait=True)
+            fig, axes = plt.subplots(ncols=2, nrows=1, figsize=(10,5))
+            axes[0].plot(history['loss'])
+            axes[0].set_title(f'Loss iter')
+            axes[1].plot(history['loss_epoch'])
+            axes[1].set_title(f'Loss epoch')
+
+        # compute the epoch training loss
+        history['loss_epoch'].append(np.mean(history['loss'][-len(train_loader):]))
+
+        
     emb = model.get_code_embedding(train_dataset)
 
-    return emb
+    return emb, history
 
 
 
 
 #@title VAE learning { form-width: "300px" }
 def create_VAE_embedding_(d, inter_dim, code_dim, epochs = 50):
+
+    history = defaultdict(list)
 
     #---------------------------------------------------------------------------
     batch_size = 32
@@ -256,9 +259,6 @@ def create_VAE_embedding_(d, inter_dim, code_dim, epochs = 50):
     #---------------------------------------------------------------------------
 
     for epoch in range(epochs):
-        loss = 0
-        loss1 = 0
-        loss2 = 0
         for batch_features, _ in train_loader:              
             # reset the gradients back to zero
             # PyTorch accumulates gradients on subsequent backward passes
@@ -279,22 +279,34 @@ def create_VAE_embedding_(d, inter_dim, code_dim, epochs = 50):
             # perform parameter update based on current gradients
             optimizer.step()
             
-            # add the mini-batch training loss to epoch loss
-            loss += train_loss.item()
-            loss1 += mse_loss.item()
-            loss2 += kld_loss.item()
-        
-        # compute the epoch training loss
-        loss = loss / len(train_loader)
-        loss1 = loss1 / len(train_loader)
-        loss2 = loss2 / len(train_loader)
-        
-        # display the epoch training loss
-        if (epoch + 1) % 1 == 0:
-            print("epoch : {}/{}, recon loss = {:.8f}".format(epoch + 1, epochs, loss))
-            print("epoch : {}/{}, mse loss = {:.8f}".format(epoch + 1, epochs, loss1))
-            print("epoch : {}/{}, kld loss = {:.8f}".format(epoch + 1, epochs, loss2))
+            history['total_loss'].append(train_loss.item())
+            history['mse_loss'].append(mse_loss.item())
+            history['kld_loss'].append(kld_loss.item())
 
+            clear_output(wait=True)
+            fig, axes = plt.subplots(ncols=3, nrows=2, figsize=(10,5))
+            axes[0,0].plot(history['total_loss'])
+            axes[0,0].set_title(f'Total loss iter')
+
+            axes[0,1].plot(history['mse_loss'])
+            axes[0,1].set_title(f'MSE loss iter')
+
+            axes[0,2].plot(history['kld_loss'])
+            axes[0,2].set_title(f'KLD loss iter')
+
+            axes[1,0].plot(history['total_loss_epoch'])
+            axes[1,0].set_title(f'Total loss epoch')
+
+            axes[1,1].plot(history['mse_loss_epoch'])
+            axes[1,1].set_title(f'MSE epoch')
+            
+            axes[1,2].plot(history['kld_loss_epoch'])
+            axes[1,2].set_title(f'KLD epoch')
+
+        history['total_loss_epoch'].append(np.mean(history['total_loss'][-len(train_loader):]))
+        history['mse_loss_epoch'].append(np.mean(history['mse_loss'][-len(train_loader):]))
+        history['kld_loss_epoch'].append(np.mean(history['kld_loss'][-len(train_loader):]))
+        
     emb = model.get_code_embedding(train_dataset)
     
-    return emb
+    return emb, history

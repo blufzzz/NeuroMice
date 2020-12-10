@@ -42,26 +42,27 @@ class Mouse():
         self.get_angle()
         self.trim_data()
         
-        try:
-            SI_data = pd.read_csv(path_spatial_info)
-            #SI_data = SI_data.astype(object).replace(np.nan, 'None')
+        # try:
+        SI_data = pd.read_csv(path_spatial_info)
+        #SI_data = SI_data.astype(object).replace(np.nan, 'None')
 
-            self.spatial_info = SI_data['spatial_info'].values
-            self.rand_spatial_info = SI_data['rand_spatial_info'].values
-            self.rand_spatial_info_std = SI_data['rand_spatial_info_std'].values
-            self.cell_z_score = np.array([np.nan for _ in range(self.n_cells)])
-            for i in range(self.n_cells):
-                try:
-                    self.cell_z_score[i] = (self.spatial_info[i] - self.rand_spatial_info[i])/self.rand_spatial_info_std[i]
-                except:
-                    pass
+        self.spatial_info = SI_data['spatial_info'].values
+        self.rand_spatial_info = SI_data['rand_spatial_info'].values
+        self.rand_spatial_info_std = SI_data['rand_spatial_info_std'].values
+        self.cell_z_score = np.array([np.nan for _ in range(self.n_cells)])
 
-        except:
+        for i in range(self.n_cells):
+            try:
+                self.cell_z_score[i] = (self.spatial_info[i] - self.rand_spatial_info[i]) / self.rand_spatial_info_std[i]
+            except:
+                pass
+
+        # except:
         
-            print('Spatial info data not found, calculating SI from scratch...')
-            self.spatial_info = np.array([np.nan for _ in range(self.n_cells)])
-            self.rand_spatial_info = np.array([np.nan for _ in range(self.n_cells)])
-            self.rand_spatial_info_std = np.array([np.nan for _ in range(self.n_cells)])
+        #     print('Spatial info data not found, calculating SI from scratch...')
+        #     self.spatial_info = np.array([np.nan for _ in range(self.n_cells)])
+        #     self.rand_spatial_info = np.array([np.nan for _ in range(self.n_cells)])
+        #     self.rand_spatial_info_std = np.array([np.nan for _ in range(self.n_cells)])
         
     def get_xy_data(self, path_track, neuro_path, xc, yc, delimiter = ' ', skip_rows = 1, skip_cols = 0):
         w = 21
@@ -210,6 +211,8 @@ class Mouse():
             ax.scatter(ms.scx, ms.scy, c = colors)
         else:
             ax.scatter(ms.scx[points], ms.scy[points], c = colors)
+
+            
 
 def TrimTime(Mouse, t_end):
     if  Mouse.n_frames >= int((t_end - Mouse.time[0])*20):   

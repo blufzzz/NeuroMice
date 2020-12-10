@@ -2,6 +2,12 @@
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
+from scipy import interpolate, signal
+import math
+from scipy.stats import kstest
+import copy
+from mouse import Mouse, TrimTime, GetRears, RearStat
 
 def get_center_coords(session, day):
     xc = None
@@ -32,9 +38,9 @@ def get_sync_time(session, day):
 
     return time_shift
 
-def create_mouse(session, day, build_spikes, auto_spikes = 0):
+def create_mouse(session, day, build_spikes, auto_spikes = 1):
 
-    PATH = '/content/drive/My Drive/Colab Notebooks/DataRoot/Neurodata_holes//'
+    PATH = './Data_Holes'
     
     time_shift = get_sync_time(session, day)
     xc, yc = get_center_coords(session, day)
@@ -43,9 +49,11 @@ def create_mouse(session, day, build_spikes, auto_spikes = 0):
     path_track = os.path.join(PATH, name + '_track.csv')
     path_neuro = os.path.join(PATH, name + '_NR_raw_neuro.csv')
     path_spatial_info = os.path.join(PATH, name + '_spatial_info.csv')
-    path_spikes = os.path.join(PATH, name + '_NR_spikes_Vova.csv')
+    
     if auto_spikes:
         path_spikes = os.path.join(PATH, name + '_NR_spikes.csv')
+    else:
+        path_spikes = os.path.join(PATH, name + '_NR_spikes_Vova.csv')
 
 
     ms = Mouse(name, session, day, time_shift, build_spikes, xc, yc,
@@ -127,7 +135,7 @@ def create_ubermouse(mslist, day):
 
 
 def write_SI_info(session, day, auto_spikes = 0):
-    PATH = '/content/drive/My Drive/Colab Notebooks/DataRoot/Neurodata_holes//'
+    PATH = './Data'
 
     ms = create_mouse(session, day, 0)
     #print(ms.spatial_info)
@@ -150,7 +158,7 @@ import scipy.sparse as sp
 
 def import_holes_neurodata(ms, inds = None, spmode = 0, std = 1):
 
-    PATH = '/content/drive/My Drive/Colab Notebooks/DataRoot/Neurodata_holes//'
+    PATH = './Data'
 
     dname  = 'CA1_'+str(ms.session)+'_HT'+str(ms.day)
 
@@ -177,6 +185,7 @@ def fill_pc_mask(ms, frcells, min_spikes, cell_selection_method):
     res = np.zeros(ms.n_cells, dtype = bool)
     cells_with_enough_spikes = np.where(ms.spikes_count > min_spikes)[0]
     ncells = int(frcells*len(cells_with_enough_spikes))
+
     '''
     for cell in tqdm.tqdm(range(ms.n_cells), leave = 1, position = 0):
         is_pc = check_place_cell_SI(ms, cell, SI_sigma_thr, 
@@ -212,7 +221,6 @@ def param_checkpoint(rebuild_place_cells, rebuild_mouse, frcells, min_spikes, se
         rebuild_mouse = bool(rebuild_mouse + (prev_sessions != sessions))
 
     return rebuild_mouse, rebuild_place_cells
-
 
 
 
@@ -263,3 +271,18 @@ def load_mouse_and_data(sessions, day, build_spikes, cell_selection_method,
         print('Done')
         
     return indices_to_take, ms, data
+
+
+def calc_gradient_magnitude(named_parameters, silence=False):
+    total_amplitude = []
+    for name, p in named_parameters:
+        # print(name)
+        if p.grad is not None:
+            param_amplitude = p.grad.data.abs().max()
+            total_amplitude += [param_amplitude.item()]
+        elif not silence:
+            print (name, 'grad is None')    
+
+    total_amplitude = max(total_amplitude)
+
+    return total_amplitude
