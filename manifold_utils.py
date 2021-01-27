@@ -34,10 +34,7 @@ def intrinsic_dim_sample_wise(X, k=5, neighb=None):
     intdim_sample = d
     return intdim_sample
 
-def intrinsic_dim_scale_interval(X, k1=10, k2=20):
-    '''
-    step = 5
-    '''
+def intrinsic_dim_scale_interval(X, k1=10, k2=20, step=5):
     X = pd.DataFrame(X).drop_duplicates() # remove duplicates in case you use bootstrapping
     
     #########################
@@ -52,7 +49,7 @@ def intrinsic_dim_scale_interval(X, k1=10, k2=20):
     
     intdim_k = []
     
-    for k in range(k1, k2 + 1, 5):
+    for k in range(k1, k2 + 1, step):
 #         print("calculating neighbours for: " + str(k))
         neighb = NearestNeighbors(n_neighbors=k+1, n_jobs=32).fit(X)
 #         print("done")
