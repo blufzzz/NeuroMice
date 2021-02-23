@@ -9,6 +9,16 @@ from scipy.stats import kstest
 import copy
 from mouse import Mouse, TrimTime, GetRears, RearStat
 
+def shuffle(X,y):
+    # shuffle
+    N = X.shape[0]
+    indexes = np.arange(N)
+    np.random.shuffle(indexes)
+
+    X_shuffled = X[indexes]
+    y_shuffled = y[indexes]
+    return X_shuffled, y_shuffled
+
 def get_center_coords(session, day):
     xc = None
     yc = None
